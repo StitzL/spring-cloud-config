@@ -18,6 +18,7 @@ package org.springframework.cloud.config.server;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.List;
 
 import org.eclipse.jgit.junit.MockSystemReader;
 import org.eclipse.jgit.util.SystemReader;
@@ -29,10 +30,12 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.web.server.LocalServerPort;
 import org.springframework.cloud.config.environment.Environment;
+import org.springframework.cloud.config.environment.EnvironmentMediaType;
 import org.springframework.cloud.config.server.test.ConfigServerTestUtils;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.ActiveProfiles;
@@ -87,6 +90,30 @@ public class VanillaConfigServerIntegrationTests {
 		// assertTrue("invalid content type",
 		// response.getHeaders().getContentType().isCompatibleWith(MediaType.APPLICATION_OCTET_STREAM));
 		assertThat(response.getBody().length).isEqualTo(expected.length());
+	}
+
+	@Test
+	public void eTagHeaderIsPresent() {
+		ResponseEntity<Environment> response = new TestRestTemplate().exchange(
+				"http://localhost:" + this.port + "/foo/development/", HttpMethod.GET, getV2AcceptEntity(),
+				Environment.class);
+		assertThat(response.getHeaders().containsKey("ETag")).isTrue();
+		List<String> eTags = response.getHeaders().getValuesAsList("ETag");
+		assertThat(eTags).hasSize(1);
+
+		HttpHeaders headers = new HttpHeaders();
+		headers.set(HttpHeaders.ACCEPT, EnvironmentMediaType.V2_JSON);
+		headers.set("If-None-Match", eTags.iterator().next());
+
+		response = new TestRestTemplate().exchange("http://localhost:" + this.port + "/foo/development/",
+				HttpMethod.GET, new HttpEntity<>(headers), Environment.class);
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_MODIFIED);
+
+		response = new TestRestTemplate().exchange("http://localhost:" + this.port + "/foo/cloud/", HttpMethod.GET,
+				new HttpEntity<>(headers), Environment.class);
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+		assertThat(response.getHeaders().containsKey("ETag")).isTrue();
+		assertThat(response.getHeaders().getValuesAsList("ETag")).isNotEqualTo(eTags);
 	}
 
 	@Test

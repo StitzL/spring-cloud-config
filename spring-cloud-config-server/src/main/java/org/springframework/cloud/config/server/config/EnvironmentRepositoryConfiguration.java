@@ -101,6 +101,7 @@ import org.springframework.credhub.core.CredHubOperations;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.vault.core.VaultTemplate;
+import org.springframework.web.filter.ShallowEtagHeaderFilter;
 
 /**
  * @author Dave Syer
@@ -138,6 +139,12 @@ public class EnvironmentRepositoryConfiguration {
 	@ConditionalOnMissingBean(ConfigTokenProvider.class)
 	public ConfigTokenProvider defaultConfigTokenProvider(ObjectProvider<HttpServletRequest> httpRequest) {
 		return new HttpRequestConfigTokenProvider(httpRequest);
+	}
+
+	@Bean
+	@ConditionalOnMissingBean(ShallowEtagHeaderFilter.class)
+	public ShallowEtagHeaderFilter shallowEtagHeaderFilter() {
+		return new ShallowEtagHeaderFilter();
 	}
 
 	@Configuration(proxyBeanMethods = false)
