@@ -97,10 +97,12 @@ public class VanillaConfigServerIntegrationTests {
 		ResponseEntity<Environment> response = new TestRestTemplate().exchange(
 				"http://localhost:" + this.port + "/foo/development/", HttpMethod.GET, getV2AcceptEntity(),
 				Environment.class);
+		// verify ETag is present
 		assertThat(response.getHeaders().containsKey("ETag")).isTrue();
 		List<String> eTags = response.getHeaders().getValuesAsList("ETag");
 		assertThat(eTags).hasSize(1);
 
+		// verify that the Config Server honors If-None-Match headers by HTTP 302 (Not modified)
 		HttpHeaders headers = new HttpHeaders();
 		headers.set(HttpHeaders.ACCEPT, EnvironmentMediaType.V2_JSON);
 		headers.set("If-None-Match", eTags.iterator().next());
@@ -108,7 +110,9 @@ public class VanillaConfigServerIntegrationTests {
 		response = new TestRestTemplate().exchange("http://localhost:" + this.port + "/foo/development/",
 				HttpMethod.GET, new HttpEntity<>(headers), Environment.class);
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_MODIFIED);
+		assertThat(response.hasBody()).isFalse();
 
+		// verify that different resources use different ETags
 		response = new TestRestTemplate().exchange("http://localhost:" + this.port + "/foo/cloud/", HttpMethod.GET,
 				new HttpEntity<>(headers), Environment.class);
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
